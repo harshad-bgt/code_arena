@@ -4,1345 +4,1927 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CODE ARENA 2.0 — AI Challenge | PVPIT</title>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #030608;
-      --bg2: #070d14;
-      --neon: #00ffe7;
-      --neon2: #ff2d78;
-      --gold: #ffd700;
-      --blue: #0af;
-      --white: #e8f4ff;
-      --dim: #8ba0b8;
-      --card: rgba(0,255,231,0.04);
-      --border: rgba(0,255,231,0.15);
+      --void: #02040a;
+      --deep: #050b15;
+      --surface: #080f1e;
+      --acid: #00ff9d;
+      --plasma: #ff006e;
+      --electric: #3d9bff;
+      --amber: #ffb800;
+      --white: #f0f6ff;
+      --ghost: rgba(240,246,255,0.45);
+      --muted: rgba(240,246,255,0.25);
+      --faint: rgba(0,255,157,0.06);
+      --border-acid: rgba(0,255,157,0.18);
+      --border-dim: rgba(240,246,255,0.07);
+      --glow-acid: 0 0 40px rgba(0,255,157,0.35), 0 0 80px rgba(0,255,157,0.12);
+      --glow-plasma: 0 0 40px rgba(255,0,110,0.35), 0 0 80px rgba(255,0,110,0.12);
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      background: var(--bg);
+      background: var(--void);
       color: var(--white);
-      font-family: 'Rajdhani', sans-serif;
+      font-family: 'Syne', sans-serif;
       overflow-x: hidden;
-      font-size: 16px;
+      cursor: none;
     }
 
-    /* ─── SCANLINE OVERLAY ─── */
-    body::before {
-      content: '';
+    /* ── CUSTOM CURSOR ── */
+    .cursor {
+      position: fixed;
+      top: 0; left: 0;
+      width: 10px; height: 10px;
+      background: var(--acid);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+      mix-blend-mode: difference;
+      transform: translate(-50%, -50%);
+      transition: width 0.15s, height 0.15s, background 0.15s;
+    }
+    .cursor-ring {
+      position: fixed;
+      top: 0; left: 0;
+      width: 36px; height: 36px;
+      border: 1px solid rgba(0,255,157,0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99998;
+      transform: translate(-50%, -50%);
+      transition: transform 0.08s, width 0.2s, height 0.2s;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    .noise {
       position: fixed;
       inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,255,231,0.012) 2px,
-        rgba(0,255,231,0.012) 4px
-      );
+      z-index: 99997;
       pointer-events: none;
-      z-index: 9999;
+      opacity: 0.028;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
     }
 
-    /* ─── PARTICLE CANVAS ─── */
-    #particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    /* ── GLITCH GRID ── */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(0,255,157,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,157,0.025) 1px, transparent 1px);
+      background-size: 80px 80px;
+      mask-image: radial-gradient(ellipse 100% 100% at 50% 0%, black 40%, transparent 100%);
+    }
 
-    /* ─── HERO ─── */
+    /* ── CANVAS ── */
+    #neural-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ══════════════════ HERO ══════════════════ */
     .hero {
       position: relative;
+      z-index: 2;
       min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+    .hero-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 48px;
+      border-bottom: 1px solid var(--border-dim);
+      animation: slideDown 0.8s ease 0.1s both;
+    }
+    .topbar-left {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+      line-height: 1.6;
+    }
+    .topbar-left strong { color: var(--acid); font-weight: 600; }
+    .topbar-right {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ghost);
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: var(--acid);
+      border-radius: 50%;
+      animation: livePulse 1.2s ease-in-out infinite;
+      box-shadow: 0 0 8px var(--acid);
+    }
+    @keyframes livePulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.6); opacity: 0.5; }
+    }
+
+    /* Hero body */
+    .hero-body {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 40px 20px;
-      z-index: 1;
-      overflow: hidden;
+      padding: 60px 24px;
+      position: relative;
     }
 
-    .hero::after {
+    /* Radial glow bg */
+    .hero-body::before {
       content: '';
       position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 60%, rgba(0,255,231,0.07) 0%, transparent 70%),
-        radial-gradient(ellipse 40% 40% at 20% 20%, rgba(0,170,255,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(255,45,120,0.05) 0%, transparent 60%);
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 700px;
+      height: 500px;
+      background: radial-gradient(ellipse at center, rgba(0,255,157,0.08) 0%, transparent 65%);
       pointer-events: none;
-      z-index: -1;
     }
 
-    .college-tag {
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 0.78rem;
-      font-weight: 500;
-      letter-spacing: 0.22em;
-      color: var(--neon);
-      text-transform: uppercase;
-      border: 1px solid var(--border);
-      padding: 6px 18px;
-      border-radius: 2px;
-      margin-bottom: 12px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.2s forwards;
-      background: rgba(0,255,231,0.04);
+    /* Large glitch number bg */
+    .hero-bg-num {
+      position: absolute;
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(18rem, 40vw, 32rem);
+      font-weight: 700;
+      color: rgba(0,255,157,0.022);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      user-select: none;
+      letter-spacing: -0.05em;
+      animation: bgNumFlicker 8s ease-in-out infinite;
+    }
+    @keyframes bgNumFlicker {
+      0%, 90%, 100% { opacity: 1; }
+      92% { opacity: 0.3; transform: translate(calc(-50% + 4px), calc(-50% - 2px)); }
+      94% { opacity: 1; transform: translate(calc(-50% - 2px), calc(-50% + 1px)); }
+      96% { opacity: 0.6; transform: translate(-50%, -50%); }
     }
 
-    .dept-tag {
-      font-size: 0.72rem;
-      letter-spacing: 0.15em;
-      color: var(--dim);
-      text-transform: uppercase;
+    .badge-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 36px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.4s forwards;
+      animation: fadeUp 0.8s ease 0.4s both;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border: 1px solid var(--border-acid);
+      color: var(--acid);
+      background: var(--faint);
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    }
+    .badge.plasma {
+      color: var(--plasma);
+      border-color: rgba(255,0,110,0.25);
+      background: rgba(255,0,110,0.05);
+    }
+    .badge.electric {
+      color: var(--electric);
+      border-color: rgba(61,155,255,0.25);
+      background: rgba(61,155,255,0.05);
     }
 
     .hero-eyebrow {
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(0.6rem, 1.5vw, 0.85rem);
-      font-weight: 400;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
       letter-spacing: 0.4em;
-      color: var(--neon2);
+      color: var(--ghost);
       text-transform: uppercase;
-      margin-bottom: 16px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.6s forwards;
+      margin-bottom: 18px;
+      animation: fadeUp 0.8s ease 0.6s both;
     }
 
+    /* Main title */
     .hero-title {
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(3.5rem, 12vw, 9rem);
-      font-weight: 900;
-      line-height: 0.9;
-      letter-spacing: -0.02em;
-      opacity: 0;
-      animation: fadeUp 1s ease 0.8s forwards;
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(5rem, 14vw, 11rem);
+      font-weight: 800;
+      line-height: 0.88;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+      animation: fadeUp 1s ease 0.8s both;
       position: relative;
     }
 
-    .hero-title span.code { color: var(--neon); text-shadow: 0 0 40px rgba(0,255,231,0.5), 0 0 80px rgba(0,255,231,0.2); }
-    .hero-title span.arena { color: var(--white); }
-
-    .hero-title .glitch {
+    .title-code {
+      display: block;
+      color: var(--white);
       position: relative;
-      display: inline-block;
     }
-    .hero-title .glitch::before,
-    .hero-title .glitch::after {
-      content: attr(data-text);
+    /* Glitch effect on CODE */
+    .title-code::before {
+      content: 'CODE';
       position: absolute;
       inset: 0;
+      color: var(--acid);
+      clip-path: polygon(0 0, 100% 0, 100% 30%, 0 30%);
+      animation: codeGlitch 4s ease-in-out infinite;
+      left: 2px;
+      text-shadow: -2px 0 var(--plasma);
     }
-    .hero-title .glitch::before {
-      color: var(--neon2);
-      animation: glitch1 3s infinite;
-      clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
-    }
-    .hero-title .glitch::after {
-      color: var(--blue);
-      animation: glitch2 3s infinite;
+    .title-code::after {
+      content: 'CODE';
+      position: absolute;
+      inset: 0;
+      color: var(--electric);
       clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+      animation: codeGlitch2 4s ease-in-out infinite;
+      left: -2px;
+    }
+    @keyframes codeGlitch {
+      0%, 88%, 100% { opacity: 0; transform: translateX(0); }
+      90% { opacity: 1; transform: translateX(-3px); }
+      92% { opacity: 0; transform: translateX(3px); }
+      94% { opacity: 1; transform: translateX(-1px); }
+      96% { opacity: 0; }
+    }
+    @keyframes codeGlitch2 {
+      0%, 85%, 100% { opacity: 0; }
+      87% { opacity: 0.8; transform: translateX(4px); }
+      89% { opacity: 0; transform: translateX(-2px); }
+      91% { opacity: 0.6; transform: translateX(1px); }
+      93% { opacity: 0; }
+    }
+
+    .title-arena {
+      display: block;
+      -webkit-text-stroke: 2px rgba(240,246,255,0.4);
+      color: transparent;
+      font-size: 0.72em;
+      letter-spacing: 0.08em;
+    }
+
+    .title-version {
+      display: inline-block;
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 700;
+      color: var(--acid);
+      letter-spacing: -0.02em;
+      -webkit-text-stroke: 0;
+      text-shadow: var(--glow-acid);
+      vertical-align: super;
+      line-height: 0;
+      position: relative;
     }
 
     .hero-sub {
-      font-size: clamp(1rem, 2.5vw, 1.3rem);
-      font-weight: 300;
-      color: var(--dim);
-      letter-spacing: 0.06em;
-      margin-top: 20px;
-      margin-bottom: 50px;
-      max-width: 560px;
-      line-height: 1.7;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 1.2s forwards;
+      font-size: clamp(0.95rem, 2vw, 1.15rem);
+      font-weight: 400;
+      color: var(--ghost);
+      max-width: 520px;
+      line-height: 1.75;
+      margin: 28px auto 52px;
+      animation: fadeUp 0.8s ease 1.1s both;
     }
+    .hero-sub strong { color: var(--white); font-weight: 700; }
 
-    .hero-sub strong { color: var(--white); font-weight: 600; }
-
-    /* ─── REGISTER BTN ─── */
-    .register-btn {
-      position: relative;
-      display: inline-block;
-      font-family: 'Orbitron', monospace;
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.2em;
+    /* Hero Date */
+    .hero-date {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--electric);
+      letter-spacing: 0.08em;
+      margin: 32px auto 42px;
+      padding: 16px 32px;
+      border: 1px solid rgba(61,155,255,0.3);
+      background: rgba(61,155,255,0.05);
+      clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+      animation: fadeUp 0.8s ease 1.2s both;
+      box-shadow: 0 0 20px rgba(61,155,255,0.15);
+    }
+    
+    .date-icon {
+      font-size: 1.3rem;
+      filter: drop-shadow(0 0 8px rgba(61,155,255,0.6));
+    }
+    
+    .date-text {
       text-transform: uppercase;
-      text-decoration: none;
-      color: var(--bg);
-      background: var(--neon);
-      padding: 18px 52px;
-      border: none;
-      cursor: pointer;
-      clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
-      transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 0 30px rgba(0,255,231,0.4), 0 0 60px rgba(0,255,231,0.15);
-      opacity: 0;
-      animation: fadeUp 0.8s ease 1.5s forwards;
-    }
-    .register-btn:hover {
-      transform: translateY(-3px) scale(1.04);
-      box-shadow: 0 0 50px rgba(0,255,231,0.7), 0 0 100px rgba(0,255,231,0.3);
-    }
-    .register-btn::before {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      background: linear-gradient(135deg, var(--neon), var(--blue), var(--neon2));
-      clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
-      z-index: -1;
     }
 
-    .btn-hint {
-      font-size: 0.72rem;
-      color: var(--dim);
-      letter-spacing: 0.1em;
-      margin-top: 14px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 1.7s forwards;
-    }
-
-    /* ─── SCROLL INDICATOR ─── */
-    .scroll-hint {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
+    /* Register Button */
+    .hero-cta {
+      animation: fadeUp 0.8s ease 1.3s both;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
-      opacity: 0;
-      animation: fadeIn 1s ease 2.5s forwards;
-    }
-    .scroll-hint span {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      color: var(--dim);
-      text-transform: uppercase;
-    }
-    .scroll-arrow {
-      width: 20px;
-      height: 20px;
-      border-right: 2px solid var(--neon);
-      border-bottom: 2px solid var(--neon);
-      transform: rotate(45deg);
-      animation: bounce 1.5s infinite;
+      gap: 12px;
     }
 
-    /* ─── SECTION BASE ─── */
-    section {
+    .reg-btn {
       position: relative;
-      z-index: 1;
-      padding: 100px 20px;
-    }
-
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .section-label {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 0.35em;
-      color: var(--neon);
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
-      margin-bottom: 14px;
+      text-decoration: none;
+      color: var(--void);
+      background: var(--acid);
+      padding: 20px 56px;
+      border: none;
+      clip-path: polygon(16px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+      box-shadow: var(--glow-acid);
+      overflow: hidden;
+    }
+    .reg-btn-scan {
+      position: absolute;
+      top: 0; left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+      animation: btnScan 2.5s ease-in-out infinite;
+    }
+    @keyframes btnScan {
+      0%, 100% { left: -60%; }
+      50% { left: 160%; }
+    }
+    .reg-btn:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 0 60px rgba(0,255,157,0.6), 0 0 120px rgba(0,255,157,0.25);
+    }
+    .reg-btn-arrow {
+      transition: transform 0.2s;
+      font-size: 1.1rem;
+    }
+    .reg-btn:hover .reg-btn-arrow { transform: translateX(5px); }
+
+    .reg-hint {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* Hero bottom bar */
+    .hero-bottombar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--border-dim);
+      animation: slideUp 0.8s ease 1.5s both;
+    }
+    .hero-stat {
+      padding: 24px 36px;
+      border-right: 1px solid var(--border-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 0; height: 2px;
+      background: var(--acid);
+      transition: width 0.4s ease;
+    }
+    .hero-stat:hover::before { width: 100%; }
+    .hero-stat:hover { background: rgba(0,255,157,0.03); }
+    .stat-num {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--acid);
+      letter-spacing: -0.02em;
+    }
+    .stat-lbl {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+
+    /* ── SCROLLING TEXT ── */
+    .scroll-text {
+      position: relative;
+      z-index: 2;
+      overflow: hidden;
+      border-top: 1px solid var(--border-dim);
+      border-bottom: 1px solid var(--border-dim);
+      background: var(--deep);
+      padding: 16px 0;
+    }
+    .scroll-track {
+      display: flex;
+      gap: 0;
+      animation: scrollTrack 30s linear infinite;
+      white-space: nowrap;
+    }
+    .scroll-item {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 40px;
+      padding-right: 40px;
     }
-    .section-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(to right, var(--border), transparent);
-      max-width: 200px;
-    }
-
-    .section-title {
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(1.8rem, 4vw, 3rem);
+    .scroll-item span {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.75rem;
       font-weight: 700;
-      line-height: 1.1;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ghost);
+    }
+    .scroll-item .dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--acid);
+      flex-shrink: 0;
+    }
+    .scroll-item span.accent { color: var(--acid); }
+    @keyframes scrollTrack { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* ══════════════════ SECTION BASE ══════════════════ */
+    section { position: relative; z-index: 2; padding: 120px 48px; }
+    .container { max-width: 1140px; margin: 0 auto; }
+
+    .s-eyebrow {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--acid);
       margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .s-eyebrow::before {
+      content: '//';
+      opacity: 0.4;
     }
 
-    .section-desc {
-      color: var(--dim);
-      font-size: 1.05rem;
+    .s-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+
+    .s-desc {
+      font-size: 1rem;
+      color: var(--ghost);
       line-height: 1.8;
-      max-width: 600px;
-      margin-bottom: 60px;
+      max-width: 540px;
       font-weight: 400;
     }
 
-    /* ─── ROUNDS ─── */
-    .rounds-grid {
+    /* ══════════════════ ROUNDS ══════════════════ */
+    #rounds { background: var(--void); }
+
+    .rounds-layout {
+      margin-top: 70px;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 2px;
-    }
-
-    @media (max-width: 768px) {
-      .rounds-grid { grid-template-columns: 1fr; }
+      background: var(--border-dim);
     }
 
     .round-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 48px 40px;
+      background: rgba(0,255,157,0.02);
+      border: 1px solid var(--border-acid);
+      padding: 0;
       position: relative;
       overflow: hidden;
-      transition: border-color 0.3s, background 0.3s;
+      transition: background 0.35s, border-color 0.35s;
     }
-    .round-card:hover {
-      border-color: var(--neon);
-      background: rgba(0,255,231,0.07);
+    .round-card:hover { 
+      background: rgba(0,255,157,0.04);
+      border-color: rgba(0,255,157,0.3);
     }
+    
+    .round-card:nth-child(2) {
+      border-color: rgba(255,0,110,0.18);
+    }
+    .round-card:nth-child(2):hover {
+      border-color: rgba(255,0,110,0.3);
+      background: rgba(255,0,110,0.04);
+    }
+
+    /* Terminal header */
     .round-card::before {
       content: '';
       position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(to right, var(--neon), var(--blue));
-      transform: scaleX(0);
-      transform-origin: left;
-      transition: transform 0.4s ease;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background: rgba(0,255,157,0.08);
+      border-bottom: 1px solid var(--border-acid);
+      z-index: 0;
     }
-    .round-card:hover::before { transform: scaleX(1); }
+    
+    .round-card:nth-child(2)::before {
+      background: rgba(255,0,110,0.08);
+      border-bottom-color: rgba(255,0,110,0.18);
+    }
 
-    .round-number {
-      font-family: 'Orbitron', monospace;
-      font-size: 4.5rem;
-      font-weight: 900;
-      color: rgba(0,255,231,0.06);
+    .terminal-dots {
       position: absolute;
-      top: 20px; right: 28px;
-      line-height: 1;
-    }
-
-    .round-badge {
-      display: inline-block;
-      font-family: 'Orbitron', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      padding: 5px 14px;
-      border-radius: 2px;
-      margin-bottom: 20px;
-    }
-    .round-badge.r1 { background: rgba(0,255,231,0.12); color: var(--neon); border: 1px solid rgba(0,255,231,0.3); }
-    .round-badge.r2 { background: rgba(255,45,120,0.1); color: var(--neon2); border: 1px solid rgba(255,45,120,0.3); }
-
-    .round-title {
-      font-family: 'Orbitron', monospace;
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin-bottom: 6px;
-      color: var(--white);
-    }
-
-    .round-duration {
-      font-size: 0.8rem;
-      color: var(--dim);
-      letter-spacing: 0.12em;
-      margin-bottom: 28px;
+      top: 13px;
+      left: 20px;
       display: flex;
+      gap: 7px;
+      z-index: 1;
+    }
+
+    .terminal-dots span {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--acid);
+      opacity: 0.5;
+    }
+
+    .terminal-dots span:nth-child(2) { background: var(--amber); }
+    .terminal-dots span:nth-child(3) { background: var(--plasma); }
+    
+    .round-card:nth-child(2) .terminal-dots span:nth-child(1) { background: var(--plasma); }
+    .round-card:nth-child(2) .terminal-dots span:nth-child(3) { background: var(--acid); }
+    
+    .round-content {
+      padding: 56px 48px 48px;
+      position: relative;
+    }
+
+    /* Top edge accent */
+    .round-card::after {
+      content: '';
+      position: absolute;
+      top: 36px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--acid) 30%, var(--electric) 70%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .round-card:hover::after { opacity: 0.5; }
+    .round-card:nth-child(2)::after {
+      background: linear-gradient(90deg, transparent 0%, var(--plasma) 30%, var(--electric) 70%, transparent 100%);
+    }
+
+    .r-tag {
+      display: inline-flex;
       align-items: center;
       gap: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
     }
-    .round-duration::before {
-      content: '';
-      width: 8px; height: 8px;
+    .r-tag .r-dot {
+      width: 6px; height: 6px;
       border-radius: 50%;
-      background: var(--neon);
-      box-shadow: 0 0 8px var(--neon);
-      animation: pulse 2s infinite;
+      animation: livePulse 1.5s ease-in-out infinite;
+    }
+    .r-tag.r1 { color: var(--acid); }
+    .r-tag.r1 .r-dot { background: var(--acid); box-shadow: 0 0 8px var(--acid); }
+    .r-tag.r2 { color: var(--plasma); }
+    .r-tag.r2 .r-dot { background: var(--plasma); box-shadow: 0 0 8px var(--plasma); animation-delay: 0.5s; }
+
+    .r-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .r-duration {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      margin-bottom: 36px;
     }
 
-    .round-items {
+    .r-items {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
+      margin-bottom: 36px;
     }
-    .round-items li {
-      font-size: 0.95rem;
-      color: var(--dim);
-      font-weight: 400;
-      padding-left: 20px;
+    .r-items li {
+      font-size: 0.92rem;
+      color: var(--ghost);
+      padding-left: 24px;
       position: relative;
       line-height: 1.5;
     }
-    .round-items li::before {
-      content: '▸';
+    .r-items li::before {
+      content: '';
       position: absolute;
       left: 0;
-      color: var(--neon);
-      font-size: 0.8rem;
+      top: 9px;
+      width: 10px;
+      height: 1px;
+      background: var(--acid);
+      opacity: 0.5;
     }
+    .round-card:nth-child(2) .r-items li::before { background: var(--plasma); }
 
-    .round-purpose {
-      margin-top: 28px;
-      padding: 16px 20px;
-      background: rgba(0,170,255,0.05);
-      border-left: 2px solid var(--blue);
-      font-size: 0.88rem;
-      color: var(--dim);
+    .r-note {
+      padding: 18px 22px;
+      background: rgba(0,255,157,0.04);
+      border-left: 2px solid rgba(0,255,157,0.25);
+      font-size: 0.85rem;
+      color: var(--ghost);
       line-height: 1.7;
-      font-style: italic;
+      font-family: 'IBM Plex Mono', monospace;
     }
-    .round-purpose strong { color: var(--blue); font-style: normal; }
+    .r-note strong { color: var(--acid); }
+    .round-card:nth-child(2) .r-note {
+      background: rgba(255,0,110,0.04);
+      border-color: rgba(255,0,110,0.25);
+    }
+    .round-card:nth-child(2) .r-note strong { color: var(--plasma); }
 
-    /* ─── EVALUATION ─── */
-    #evaluation { background: var(--bg2); }
+    /* ══════════════════ WHY ENROLL ══════════════════ */
+    #why-enroll {
+      background: var(--deep);
+      overflow: hidden;
+    }
 
-    .eval-grid {
+    .why-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border-dim);
+      margin-top: 70px;
+      margin-bottom: 80px;
+    }
+
+    .why-card {
+      background: var(--deep);
+      padding: 48px 40px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+    .why-card:hover { background: rgba(0,255,157,0.025); }
+
+    .why-num {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--acid);
+      letter-spacing: 0.15em;
+      margin-bottom: 28px;
+      opacity: 0.7;
+    }
+
+    .why-icon-wrap {
+      width: 52px; height: 52px;
+      border: 1px solid var(--border-acid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      position: relative;
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+      background: rgba(0,255,157,0.06);
+      transition: box-shadow 0.3s;
+    }
+    .why-card:hover .why-icon-wrap {
+      box-shadow: 0 0 20px rgba(0,255,157,0.3);
+    }
+
+    .why-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      letter-spacing: -0.01em;
+    }
+    .why-text {
+      font-size: 0.9rem;
+      color: var(--ghost);
+      line-height: 1.75;
+    }
+
+    /* Chatbot flow */
+    .flow-block {
+      border: 1px solid var(--border-dim);
+      background: rgba(0,255,157,0.02);
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+    .flow-block::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 50% 60% at 50% 100%, rgba(0,255,157,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .flow-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.3em;
+      color: var(--acid);
+      text-transform: uppercase;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .flow-label::before { content: '[ '; color: var(--muted); }
+    .flow-label::after { content: ' ]'; color: var(--muted); }
+
+    .flow-steps {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      background: var(--border-dim);
+    }
+
+    .flow-step {
+      flex: 1;
+      background: var(--deep);
+      padding: 32px 24px;
+      position: relative;
+      text-align: center;
+      border-right: 1px solid var(--border-dim);
+      transition: background 0.3s;
+    }
+    .flow-step:last-child { border-right: none; }
+    .flow-step:hover { background: rgba(0,255,157,0.04); }
+
+    .flow-step-num {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--acid);
+      opacity: 0.5;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .flow-step-icon {
+      font-size: 1.6rem;
+      margin-bottom: 14px;
+      display: block;
+      filter: drop-shadow(0 0 8px rgba(0,255,157,0.5));
+    }
+    .flow-step-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .flow-step-desc {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* flowing line between steps */
+    .flow-connector {
+      width: 24px;
+      flex-shrink: 0;
+      background: var(--deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--acid);
+      font-size: 0.8rem;
+      opacity: 0.4;
+      border-right: 1px solid var(--border-dim);
+      position: relative;
+    }
+
+    /* ══════════════════ EVALUATION - IMPROVED ══════════════════ */
+    #evaluation { 
+      background: var(--void); 
+      padding: 120px 48px;
+    }
+
+    .eval-intro {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 70px;
+    }
+
+    .eval-layout {
+      margin-top: 70px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      position: relative;
     }
 
     .eval-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 30px 28px;
+      background: linear-gradient(135deg, rgba(0,255,157,0.03) 0%, rgba(0,255,157,0.01) 100%);
+      border: 1px solid var(--border-dim);
+      padding: 42px 36px;
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s, border-color 0.3s;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: default;
+      clip-path: polygon(20px 0%, 100% 0%, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0% 100%, 0% 20px);
     }
+
+    .eval-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
     .eval-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(0,255,231,0.35);
+      transform: translateY(-8px);
+      box-shadow: 0 12px 40px rgba(0,255,157,0.15);
+      border-color: var(--border-acid);
     }
 
-    .eval-percent {
-      font-family: 'Orbitron', monospace;
-      font-size: 2.8rem;
-      font-weight: 900;
+    .eval-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    /* Different colors for each card */
+    .eval-card:nth-child(1) { background: linear-gradient(135deg, rgba(0,255,157,0.05) 0%, rgba(0,255,157,0.01) 100%); }
+    .eval-card:nth-child(1)::before { background: var(--acid); }
+    .eval-card:nth-child(1):hover { box-shadow: 0 12px 40px rgba(0,255,157,0.2); }
+
+    .eval-card:nth-child(2) { background: linear-gradient(135deg, rgba(255,184,0,0.05) 0%, rgba(255,184,0,0.01) 100%); }
+    .eval-card:nth-child(2)::before { background: var(--amber); }
+    .eval-card:nth-child(2):hover { box-shadow: 0 12px 40px rgba(255,184,0,0.2); }
+
+    .eval-card:nth-child(3) { background: linear-gradient(135deg, rgba(0,255,157,0.05) 0%, rgba(0,255,157,0.01) 100%); }
+    .eval-card:nth-child(3)::before { background: var(--acid); }
+    .eval-card:nth-child(3):hover { box-shadow: 0 12px 40px rgba(0,255,157,0.2); }
+
+    .eval-card:nth-child(4) { background: linear-gradient(135deg, rgba(255,0,110,0.05) 0%, rgba(255,0,110,0.01) 100%); }
+    .eval-card:nth-child(4)::before { background: var(--plasma); }
+    .eval-card:nth-child(4):hover { box-shadow: 0 12px 40px rgba(255,0,110,0.2); }
+
+    .eval-card:nth-child(5) { background: linear-gradient(135deg, rgba(61,155,255,0.05) 0%, rgba(61,155,255,0.01) 100%); }
+    .eval-card:nth-child(5)::before { background: var(--electric); }
+    .eval-card:nth-child(5):hover { box-shadow: 0 12px 40px rgba(61,155,255,0.2); }
+
+    .eval-card:nth-child(6) { background: linear-gradient(135deg, rgba(255,184,0,0.05) 0%, rgba(255,184,0,0.01) 100%); }
+    .eval-card:nth-child(6)::before { background: var(--amber); }
+    .eval-card:nth-child(6):hover { box-shadow: 0 12px 40px rgba(255,184,0,0.2); }
+
+    .eval-card:nth-child(7) { background: linear-gradient(135deg, rgba(255,0,110,0.05) 0%, rgba(255,0,110,0.01) 100%); }
+    .eval-card:nth-child(7)::before { background: var(--plasma); }
+    .eval-card:nth-child(7):hover { box-shadow: 0 12px 40px rgba(255,0,110,0.2); }
+
+    .eval-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .eval-weight {
+      font-family: 'Space Mono', monospace;
+      font-size: 3.2rem;
+      font-weight: 700;
       line-height: 1;
-      margin-bottom: 10px;
+      letter-spacing: -0.02em;
     }
 
-    .eval-card:nth-child(1) .eval-percent { color: var(--neon); }
-    .eval-card:nth-child(2) .eval-percent { color: var(--gold); }
-    .eval-card:nth-child(3) .eval-percent { color: var(--neon); }
-    .eval-card:nth-child(4) .eval-percent { color: var(--neon2); }
-    .eval-card:nth-child(5) .eval-percent { color: var(--blue); }
-    .eval-card:nth-child(6) .eval-percent { color: var(--gold); }
-    .eval-card:nth-child(7) .eval-percent { color: var(--neon2); }
+    .eval-card:nth-child(1) .eval-weight { color: var(--acid); }
+    .eval-card:nth-child(2) .eval-weight { color: var(--amber); }
+    .eval-card:nth-child(3) .eval-weight { color: var(--acid); }
+    .eval-card:nth-child(4) .eval-weight { color: var(--plasma); }
+    .eval-card:nth-child(5) .eval-weight { color: var(--electric); }
+    .eval-card:nth-child(6) .eval-weight { color: var(--amber); }
+    .eval-card:nth-child(7) .eval-weight { color: var(--plasma); }
+
+    .eval-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      background: rgba(0,255,157,0.1);
+      color: var(--acid);
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .eval-card:nth-child(2) .eval-badge,
+    .eval-card:nth-child(6) .eval-badge {
+      background: rgba(255,184,0,0.1);
+      color: var(--amber);
+    }
+
+    .eval-card:nth-child(4) .eval-badge,
+    .eval-card:nth-child(7) .eval-badge {
+      background: rgba(255,0,110,0.1);
+      color: var(--plasma);
+    }
+
+    .eval-card:nth-child(5) .eval-badge {
+      background: rgba(61,155,255,0.1);
+      color: var(--electric);
+    }
 
     .eval-name {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
+      font-family: 'Syne', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+      margin-bottom: 16px;
       color: var(--white);
-      text-transform: uppercase;
-      margin-bottom: 14px;
     }
 
-    .eval-bar {
-      height: 3px;
-      background: rgba(255,255,255,0.07);
-      border-radius: 2px;
-      margin-bottom: 16px;
+    /* Progress bar - improved */
+    .eval-track {
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin: 16px 0;
+      border-radius: 3px;
+      position: relative;
+    }
+
+    .eval-track::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .eval-fill {
+      height: 100%;
+      border-radius: 3px;
+      width: 0;
+      transition: width 1.4s cubic-bezier(0.16,1,0.3,1);
+      position: relative;
       overflow: hidden;
     }
-    .eval-bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      background: currentColor;
-      transition: width 1.5s ease;
+
+    .eval-fill::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: fillShimmer 2s infinite;
+    }
+
+    @keyframes fillShimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
     }
 
     .eval-points {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 7px;
-    }
-    .eval-points li {
-      font-size: 0.82rem;
-      color: var(--dim);
-      padding-left: 14px;
-      position: relative;
-    }
-    .eval-points li::before {
-      content: '—';
-      position: absolute;
-      left: 0;
-      color: rgba(255,255,255,0.2);
-      font-size: 0.7rem;
+      gap: 12px;
+      margin-top: 12px;
     }
 
-    /* ─── CTA SECTION ─── */
-    #cta {
-      text-align: center;
-      padding: 120px 20px;
+    .eval-points li {
+      font-size: 0.88rem;
+      color: var(--ghost);
+      padding-left: 22px;
       position: relative;
+      line-height: 1.6;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .eval-points li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: var(--acid);
+      font-size: 0.7rem;
+      top: 2px;
+    }
+
+    .eval-card:nth-child(2) .eval-points li::before,
+    .eval-card:nth-child(6) .eval-points li::before {
+      color: var(--amber);
+    }
+
+    .eval-card:nth-child(4) .eval-points li::before,
+    .eval-card:nth-child(7) .eval-points li::before {
+      color: var(--plasma);
+    }
+
+    .eval-card:nth-child(5) .eval-points li::before {
+      color: var(--electric);
+    }
+
+    /* ══════════════════ PRIZES ══════════════════ */
+    #prizes {
+      background: var(--deep);
       overflow: hidden;
     }
 
-    #cta::before {
-      content: 'ENTER';
+    .prizes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 70px;
+    }
+
+    .prize-card {
+      background: linear-gradient(135deg, rgba(0,255,157,0.04) 0%, rgba(0,255,157,0.01) 100%);
+      border: 1px solid var(--border-dim);
+      padding: 56px 40px;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      clip-path: polygon(24px 0%, 100% 0%, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0% 100%, 0% 24px);
+    }
+
+    .prize-card::before {
+      content: '';
       position: absolute;
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(6rem, 22vw, 16rem);
-      font-weight: 900;
-      color: rgba(0,255,231,0.025);
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .prize-card:hover {
+      transform: translateY(-12px) scale(1.02);
+      border-color: var(--border-acid);
+    }
+
+    .prize-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    /* First place - Acid */
+    .prize-card:nth-child(1) {
+      background: linear-gradient(135deg, rgba(0,255,157,0.08) 0%, rgba(0,255,157,0.02) 100%);
+    }
+    .prize-card:nth-child(1)::before { background: var(--acid); }
+    .prize-card:nth-child(1):hover {
+      box-shadow: 0 16px 50px rgba(0,255,157,0.3);
+    }
+
+    /* Second place - Electric */
+    .prize-card:nth-child(2) {
+      background: linear-gradient(135deg, rgba(61,155,255,0.08) 0%, rgba(61,155,255,0.02) 100%);
+    }
+    .prize-card:nth-child(2)::before { background: var(--electric); }
+    .prize-card:nth-child(2):hover {
+      box-shadow: 0 16px 50px rgba(61,155,255,0.3);
+    }
+
+    /* Third place - Amber */
+    .prize-card:nth-child(3) {
+      background: linear-gradient(135deg, rgba(255,184,0,0.08) 0%, rgba(255,184,0,0.02) 100%);
+    }
+    .prize-card:nth-child(3)::before { background: var(--amber); }
+    .prize-card:nth-child(3):hover {
+      box-shadow: 0 16px 50px rgba(255,184,0,0.3);
+    }
+
+    .prize-rank {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+
+    .prize-card:nth-child(1) .prize-rank { color: var(--acid); }
+    .prize-card:nth-child(2) .prize-rank { color: var(--electric); }
+    .prize-card:nth-child(3) .prize-rank { color: var(--amber); }
+
+    .prize-trophy {
+      font-size: 4.5rem;
+      margin-bottom: 24px;
+      display: block;
+      filter: drop-shadow(0 4px 20px rgba(0,255,157,0.4));
+    }
+
+    .prize-card:nth-child(2) .prize-trophy {
+      filter: drop-shadow(0 4px 20px rgba(61,155,255,0.4));
+    }
+
+    .prize-card:nth-child(3) .prize-trophy {
+      filter: drop-shadow(0 4px 20px rgba(255,184,0,0.4));
+    }
+
+    .prize-amount {
+      font-family: 'Space Mono', monospace;
+      font-size: 3.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      line-height: 1;
+    }
+
+    .prize-card:nth-child(1) .prize-amount { color: var(--acid); text-shadow: 0 0 30px rgba(0,255,157,0.5); }
+    .prize-card:nth-child(2) .prize-amount { color: var(--electric); text-shadow: 0 0 30px rgba(61,155,255,0.5); }
+    .prize-card:nth-child(3) .prize-amount { color: var(--amber); text-shadow: 0 0 30px rgba(255,184,0,0.5); }
+
+    .prize-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.01em;
+    }
+
+    /* ══════════════════ CONTACT ══════════════════ */
+    #contact {
+      background: var(--void);
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      background: var(--border-dim);
+      margin-top: 70px;
+    }
+
+    .contact-card {
+      background: rgba(0,255,157,0.02);
+      border: 1px solid var(--border-acid);
+      padding: 48px 44px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.35s, border-color 0.35s;
+    }
+
+    .contact-card:hover {
+      background: rgba(0,255,157,0.04);
+      border-color: rgba(0,255,157,0.3);
+    }
+
+    .contact-card:nth-child(2) {
+      border-color: rgba(61,155,255,0.18);
+    }
+
+    .contact-card:nth-child(2):hover {
+      border-color: rgba(61,155,255,0.3);
+      background: rgba(61,155,255,0.04);
+    }
+
+    .contact-type {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--acid);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .contact-card:nth-child(2) .contact-type {
+      color: var(--electric);
+    }
+
+    .contact-type::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--acid);
+      animation: livePulse 1.5s ease-in-out infinite;
+    }
+
+    .contact-card:nth-child(2) .contact-type::before {
+      background: var(--electric);
+    }
+
+    .contact-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.65rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      color: var(--white);
+    }
+
+    .contact-role {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 28px;
+      letter-spacing: 0.08em;
+    }
+
+    .contact-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.05rem;
+      color: var(--white);
+      padding: 16px 24px;
+      background: rgba(0,255,157,0.06);
+      border-left: 3px solid var(--acid);
+      letter-spacing: 0.05em;
+    }
+
+    .contact-card:nth-child(2) .contact-info {
+      background: rgba(61,155,255,0.06);
+      border-left-color: var(--electric);
+    }
+
+    .contact-icon {
+      font-size: 1.3rem;
+      filter: drop-shadow(0 0 8px rgba(0,255,157,0.6));
+    }
+
+    .contact-card:nth-child(2) .contact-icon {
+      filter: drop-shadow(0 0 8px rgba(61,155,255,0.6));
+    }
+
+    /* ══════════════════ CTA ══════════════════ */
+    #cta {
+      background: var(--deep);
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .cta-grid-bg {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .cta-inner { position: relative; z-index: 1; }
+
+    .cta-glow {
+      position: absolute;
+      width: 500px;
+      height: 300px;
+      background: radial-gradient(ellipse, rgba(0,255,157,0.12) 0%, transparent 70%);
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      white-space: nowrap;
       pointer-events: none;
     }
 
     .cta-title {
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(1.8rem, 5vw, 3.5rem);
-      font-weight: 900;
-      margin-bottom: 20px;
-      line-height: 1.15;
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      font-weight: 800;
+      line-height: 0.9;
+      letter-spacing: -0.04em;
+      margin-bottom: 28px;
     }
-    .cta-title span { color: var(--neon); text-shadow: 0 0 30px rgba(0,255,231,0.4); }
+    .cta-title .line2 {
+      display: block;
+      -webkit-text-stroke: 2px var(--acid);
+      color: transparent;
+    }
 
     .cta-sub {
-      font-size: 1.1rem;
-      color: var(--dim);
-      max-width: 480px;
-      margin: 0 auto 50px;
-      line-height: 1.7;
+      font-size: 1rem;
+      color: var(--ghost);
+      max-width: 440px;
+      margin: 0 auto 48px;
+      line-height: 1.75;
     }
 
-    .cta-register-btn {
-      display: inline-block;
-      font-family: 'Orbitron', monospace;
-      font-size: 1rem;
+    .cta-btn-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .cta-main-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.92rem;
       font-weight: 700;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       text-decoration: none;
-      color: var(--bg);
-      background: linear-gradient(135deg, var(--neon) 0%, #00d4c0 100%);
-      padding: 22px 70px;
-      clip-path: polygon(16px 0%, 100% 0%, calc(100% - 16px) 100%, 0% 100%);
-      transition: transform 0.2s, box-shadow 0.3s;
-      box-shadow: 0 0 40px rgba(0,255,231,0.45), 0 0 80px rgba(0,255,231,0.2);
+      color: var(--void);
+      background: linear-gradient(135deg, var(--acid) 0%, #00e88a 100%);
+      padding: 22px 64px;
+      clip-path: polygon(20px 0%, 100% 0%, calc(100% - 20px) 100%, 0% 100%);
+      box-shadow: var(--glow-acid);
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
     }
-    .cta-register-btn:hover {
-      transform: translateY(-4px) scale(1.05);
-      box-shadow: 0 0 60px rgba(0,255,231,0.7), 0 0 120px rgba(0,255,231,0.35);
+    .cta-main-btn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      animation: btnScan 2.5s ease-in-out infinite;
     }
-
-    .cta-arrow {
-      display: inline-block;
-      margin-left: 10px;
-      transition: transform 0.2s;
+    .cta-main-btn:hover {
+      transform: translateY(-5px) scale(1.04);
+      box-shadow: 0 0 80px rgba(0,255,157,0.7), 0 0 160px rgba(0,255,157,0.3);
     }
-    .cta-register-btn:hover .cta-arrow { transform: translateX(6px); }
 
     .cta-note {
-      margin-top: 22px;
-      font-size: 0.8rem;
-      color: var(--dim);
-      letter-spacing: 0.08em;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
     }
 
-    /* ─── FOOTER ─── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 40px 20px;
-      text-align: center;
-      z-index: 1;
+    .cta-why {
+      max-width: 680px;
+      margin: 60px auto 0;
+      border: 1px solid var(--border-dim);
+      padding: 36px 40px;
+      text-align: left;
       position: relative;
+    }
+    .cta-why::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--acid), transparent);
+    }
+    .cta-why-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      color: var(--acid);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .cta-why p {
+      font-size: 0.92rem;
+      color: var(--ghost);
+      line-height: 1.8;
+    }
+    .cta-why p strong { color: var(--white); }
+
+    /* ══════════════════ FOOTER ══════════════════ */
+    footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid var(--border-dim);
+      padding: 40px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
     .footer-logo {
-      font-family: 'Orbitron', monospace;
+      font-family: 'Space Mono', monospace;
       font-size: 1.1rem;
       font-weight: 700;
-      color: var(--neon);
+      color: var(--acid);
       letter-spacing: 0.15em;
-      margin-bottom: 10px;
+      text-shadow: 0 0 25px rgba(0,255,157,0.5);
     }
 
-    .footer-text {
-      font-size: 0.78rem;
-      color: var(--dim);
-      letter-spacing: 0.1em;
-      line-height: 1.9;
+    .footer-info {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ghost);
+      letter-spacing: 0.08em;
+      line-height: 1.8;
+      text-align: right;
+      font-weight: 400;
     }
 
-    /* ─── DIVIDER ─── */
-    .divider {
-      width: 100%;
-      height: 1px;
-      background: linear-gradient(to right, transparent, var(--border), transparent);
-      margin: 0;
-    }
-
-    /* ─── ANIMATIONS ─── */
+    /* ══════════════════ ANIMATIONS ══════════════════ */
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(28px); }
+      from { opacity: 0; transform: translateY(30px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to   { opacity: 1; }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes bounce {
-      0%, 100% { transform: rotate(45deg) translateY(0); }
-      50%       { transform: rotate(45deg) translateY(6px); }
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--neon); }
-      50%       { opacity: 0.4; box-shadow: 0 0 3px var(--neon); }
-    }
-    @keyframes glitch1 {
-      0%, 90%, 100% { transform: translate(0); opacity: 0; }
-      92% { transform: translate(-3px, 1px); opacity: 0.7; }
-      94% { transform: translate(3px, -1px); opacity: 0.7; }
-      96% { transform: translate(-2px, 0); opacity: 0.7; }
-      98% { transform: translate(0); opacity: 0; }
-    }
-    @keyframes glitch2 {
-      0%, 85%, 100% { transform: translate(0); opacity: 0; }
-      87% { transform: translate(3px, 2px); opacity: 0.6; }
-      89% { transform: translate(-3px, -2px); opacity: 0.6; }
-      91% { transform: translate(2px, 1px); opacity: 0.6; }
-      93% { transform: translate(0); opacity: 0; }
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50%       { transform: translateY(-12px); }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ─── REVEAL ON SCROLL ─── */
+    /* ── REVEAL ── */
     .reveal {
       opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
+      transform: translateY(28px);
+      transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1), transform 0.75s cubic-bezier(0.16,1,0.3,1);
     }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    .reveal.vis { opacity: 1; transform: translateY(0); }
 
-    /* ─── HIGHLIGHTS / STAT BAR ─── */
-    .stat-row {
-      display: flex;
-      gap: 2px;
-      margin-bottom: 80px;
-      flex-wrap: wrap;
+    /* ══════════════════ RESPONSIVE ══════════════════ */
+    @media (max-width: 1100px) {
+      .eval-layout { grid-template-columns: repeat(2, 1fr); }
+      .prizes-grid { grid-template-columns: 1fr; }
     }
-
-    .stat-item {
-      flex: 1;
-      min-width: 160px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 28px 24px;
-      text-align: center;
+    @media (max-width: 900px) {
+      .rounds-layout { grid-template-columns: 1fr; }
+      .why-grid { grid-template-columns: 1fr; }
+      .hero-bottombar { grid-template-columns: repeat(2, 1fr); }
+      .eval-layout { grid-template-columns: 1fr; }
+      .contact-grid { grid-template-columns: 1fr; }
+      section { padding: 90px 28px; }
+      .hero-topbar { padding: 20px 28px; }
     }
-
-    .stat-value {
-      font-family: 'Orbitron', monospace;
-      font-size: 2rem;
-      font-weight: 900;
-      color: var(--neon);
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .stat-label {
-      font-size: 0.72rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--dim);
-    }
-
-    /* ─── MARQUEE ─── */
-    .marquee-wrap {
-      overflow: hidden;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 0;
-      background: rgba(0,255,231,0.02);
-      z-index: 1;
-      position: relative;
-    }
-
-    .marquee-track {
-      display: flex;
-      gap: 60px;
-      white-space: nowrap;
-      animation: marquee 25s linear infinite;
-    }
-
-    .marquee-track span {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.65rem;
-      font-weight: 600;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--neon);
-      opacity: 0.6;
-    }
-
-    .marquee-track span.sep {
-      color: var(--neon2);
-      opacity: 0.5;
-    }
-
-    @keyframes marquee {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
-    }
-
-    /* ─── RESPONSIVE ─── */
     @media (max-width: 600px) {
-      .round-card { padding: 36px 24px; }
-      .eval-grid { grid-template-columns: 1fr; }
-      .stat-row { gap: 2px; }
+      .hero-bottombar { grid-template-columns: repeat(2, 1fr); }
+      .flow-steps { flex-direction: column; }
+      .flow-connector { display: none; }
+      footer { flex-direction: column; text-align: center; }
+      .footer-info { text-align: center; }
+    }
+
+    /* terminal typewriter line */
+    .typewriter-wrap {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--acid);
+      opacity: 0.7;
+      letter-spacing: 0.1em;
+      margin-top: 0;
+      animation: fadeUp 0.8s ease 2s both;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .typewriter-wrap .prompt { color: var(--muted); }
+    .typewriter-text {
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 2px solid var(--acid);
+      animation: typing 4s steps(40) 2.2s both, blink 0.8s step-end 2.2s infinite;
+      max-width: 340px;
+    }
+    @keyframes typing {
+      from { width: 0; }
+      to   { width: 100%; }
+    }
+    @keyframes blink {
+      0%, 100% { border-color: var(--acid); }
+      50%       { border-color: transparent; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Particle Canvas -->
-  <canvas id="particles"></canvas>
+  <!-- Cursor -->
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-ring" id="cursor-ring"></div>
 
-  <!-- ═══ HERO ═══ -->
+  <!-- Noise + Grid -->
+  <div class="noise"></div>
+  <div class="grid-bg"></div>
+
+  <!-- Neural Canvas -->
+  <canvas id="neural-canvas"></canvas>
+
+  <!-- ═══════ HERO ═══════ -->
   <section class="hero">
-    <div class="college-tag">TSSM's Padmabhooshan Vasantdada Patil Institute of Technology, Bavdhan</div>
-    <div class="dept-tag">Department of Computer Science (Data Science)</div>
-    <div class="hero-eyebrow">presents</div>
-
-    <h1 class="hero-title">
-      <span class="code glitch" data-text="CODE">CODE</span>&nbsp;<span class="arena">ARENA <span style="color:var(--neon2); text-shadow: 0 0 40px rgba(255,45,120,0.5);">2.0</span></span>
-    </h1>
-
-    <div class="event-meta">
-      <div class="event-meta-item">
-        <span class="event-meta-icon">📅</span>
-        <span class="event-meta-text">19 February 2026</span>
+    <!-- Top Bar -->
+    <div class="hero-topbar">
+      <div class="topbar-left">
+        <strong>TSSM's Padmabhooshan Vasantdada Patil Institute of Technology, Bavdhan</strong><br/>
+        Dept. of Computer Science (Data Science)
       </div>
-      <div class="event-meta-sep">|</div>
-      <div class="event-meta-item">
-        <span class="event-meta-icon">📍</span>
-        <span class="event-meta-text">PVPIT Bavdhan</span>
+      <div class="topbar-right">
+        <div class="live-dot"></div>
+        PVPIT Bavdhan
       </div>
     </div>
 
-    <p class="hero-sub">
-      An exciting <strong>AI challenge</strong> to test your knowledge, design intelligent prompts,<br/>
-      and build real AI solutions.
-    </p>
+    <!-- Hero Body -->
+    <div class="hero-body">
+      <div class="hero-bg-num">2.0</div>
 
-    <a href="https://docs.google.com/forms/d/e/1FAIpQLSfY9k8oS7bbECMn7THmO8V59-VNBjXu2VRiilznm-UI8KPdSw/viewform?usp=dialog" target="_blank" class="register-btn">
-      Register Now &nbsp;→
-    </a>
-    <p class="btn-hint">↑ click to fill the registration form</p>
+      <div class="badge-row">
+        <div class="badge">Data Science</div>
+      </div>
 
-    <div class="scroll-hint">
-      <span>scroll to explore</span>
-      <div class="scroll-arrow"></div>
+      <div class="hero-eyebrow">presents</div>
+
+      <h1 class="hero-title">
+        <span class="title-code">CODE</span>
+        <span class="title-arena">ARENA <span class="title-version">2.0</span></span>
+      </h1>
+
+      <div class="typewriter-wrap">
+        <span class="prompt">$&gt;</span>
+        <span class="typewriter-text">initializing AI challenge sequence...</span>
+      </div>
+
+      <p class="hero-sub">
+        The <strong>ultimate AI challenge</strong> — test your instincts,<br/>
+        engineer prompts, and build real AI-powered systems.
+      </p>
+
+      <!-- <div class="hero-date">
+        <div class="date-icon"></div>
+        <div class="date-text">19 February 2026</div>
+      </div> -->
+
+      <div class="hero-cta">
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSfY9k8oS7bbECMn7THmO8V59-VNBjXu2VRiilznm-UI8KPdSw/viewform?usp=dialog" target="_blank" class="reg-btn">
+          <span class="reg-btn-scan"></span>
+          Register Now
+          <span class="reg-btn-arrow">→</span>
+        </a>
+        <div class="reg-hint">↑ opens registration form</div>
+      </div>
+    </div>
+
+    <!-- Hero Stats Bar -->
+    <div class="hero-bottombar">
+      <div class="hero-stat">
+        <span class="stat-num">19 FEB 2026</span>
+        <span class="stat-lbl">Event Date </span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-num">2</span>
+        <span class="stat-lbl">Rounds</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-num">3.5hr</span>
+        <span class="stat-lbl">Total Duration</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-num">1–2</span>
+        <span class="stat-lbl">Members Per Team</span>
+      </div>
     </div>
   </section>
 
-  <!-- ═══ MARQUEE ═══ -->
-  <div class="marquee-wrap">
-    <div class="marquee-track">
-      <span>AI Quiz</span><span class="sep">✦</span>
-      <span>Prompt Engineering</span><span class="sep">✦</span>
-      <span>Chatbot Building</span><span class="sep">✦</span>
-      <span>LLM Challenge</span><span class="sep">✦</span>
-      <span>AI vs Human</span><span class="sep">✦</span>
-      <span>Code Arena</span><span class="sep">✦</span>
-      <span>Domain-Specific AI</span><span class="sep">✦</span>
-      <span>Edge Case Handling</span><span class="sep">✦</span>
-      <span>AI Quiz</span><span class="sep">✦</span>
-      <span>Prompt Engineering</span><span class="sep">✦</span>
-      <span>Chatbot Building</span><span class="sep">✦</span>
-      <span>LLM Challenge</span><span class="sep">✦</span>
-      <span>AI vs Human</span><span class="sep">✦</span>
-      <span>Code Arena</span><span class="sep">✦</span>
-      <span>Domain-Specific AI</span><span class="sep">✦</span>
-      <span>Edge Case Handling</span><span class="sep">✦</span>
+  <!-- Scrolling Text -->
+  <div class="scroll-text" aria-hidden="true">
+    <div class="scroll-track">
+      <div class="scroll-item"><span class="accent">AI Quiz</span><div class="dot"></div><span>Prompt Engineering</span><div class="dot"></div><span>Chatbot Building</span><div class="dot"></div><span>LLM Challenge</span><div class="dot"></div><span>AI vs Human</span><div class="dot"></div><span class="accent">Code Arena 2.0</span><div class="dot"></div><span>Domain-Specific AI</span><div class="dot"></div><span>Edge Case Handling</span><div class="dot"></div></div>
+      <div class="scroll-item"><span class="accent">AI Quiz</span><div class="dot"></div><span>Prompt Engineering</span><div class="dot"></div><span>Chatbot Building</span><div class="dot"></div><span>LLM Challenge</span><div class="dot"></div><span>AI vs Human</span><div class="dot"></div><span class="accent">Code Arena 2.0</span><div class="dot"></div><span>Domain-Specific AI</span><div class="dot"></div><span>Edge Case Handling</span><div class="dot"></div></div>
     </div>
   </div>
 
-  <!-- ═══ ROUNDS ═══ -->
+  <!-- ═══════ ROUNDS ═══════ -->
   <section id="rounds">
     <div class="container">
+      <div class="s-eyebrow reveal">The Challenge // 19 February 2026</div>
+      <h2 class="s-title reveal">Two Rounds.<br/>One Champion.</h2>
+      <p class="s-desc reveal">A structured battle — from AI awareness to building a working, domain-specific chatbot under pressure.</p>
 
-      <div class="stat-row reveal">
-        <div class="stat-item">
-          <span class="stat-value">2</span>
-          <span class="stat-label">Rounds</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">3.5<span style="font-size:1.2rem">hr</span></span>
-          <span class="stat-label">Total Duration</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">7</span>
-          <span class="stat-label">Judging Criteria</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">1-2</span>
-          <span class="stat-label">Players per Team</span>
-        </div>
-      </div>
+      <div class="rounds-layout reveal">
 
-      <div class="section-label reveal">The Challenge</div>
-      <h2 class="section-title reveal">Two Rounds.<br/>One Champion.</h2>
-      <p class="section-desc reveal">A structured battle of knowledge and creativity — from testing your AI awareness to building a real, working chatbot.</p>
-
-      <div class="rounds-grid">
         <!-- Round 1 -->
-        <div class="round-card reveal">
-          <div class="round-number">01</div>
-          <div class="round-badge r1">Round 1</div>
-          <h3 class="round-title">AI Quiz — Basic</h3>
-          <div class="round-duration">Duration: 30 Minutes</div>
-          <ul class="round-items">
-            <li>Basics of Artificial Intelligence and chatbots</li>
-            <li>Introduction to LLMs and how they are used</li>
-            <li>Prompt basics and how prompts affect outputs</li>
-            <li>Fun "AI vs Human" — guess who wrote it!</li>
-            <li>Short puzzles and logical thinking questions</li>
-            <li>Interesting AI facts and knowledge questions</li>
-          </ul>
-          <div class="round-purpose">
-            <strong>No prior AI/ML experience required.</strong> This round is beginner-friendly and designed to be engaging — it filters participants for Round 2.
+        <div class="round-card">
+          <div class="terminal-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          
+          <div class="round-content">
+            <div class="r-tag r1"><div class="r-dot"></div>Round 01</div>
+            <h3 class="r-title">AI Quiz — Basic</h3>
+            <div class="r-duration">// 30 min &nbsp;·&nbsp; Beginner-friendly</div>
+
+            <ul class="r-items">
+              <li>Basics of Artificial Intelligence and chatbots</li>
+              <li>Introduction to LLMs and how they are used</li>
+              <li>Prompt basics and how prompts affect outputs</li>
+              <li>Fun "AI vs Human" — guess who wrote it!</li>
+              <li>Short puzzles and logical thinking questions</li>
+              <li>Interesting AI facts and knowledge questions</li>
+            </ul>
+
+            <div class="r-note">
+              <strong>No prior AIML experience required.</strong> Beginner-friendly and engaging — filters participants for Round 2.
+            </div>
           </div>
         </div>
 
         <!-- Round 2 -->
-        <div class="round-card reveal">
-          <div class="round-number">02</div>
-          <div class="round-badge r2">Round 2</div>
-          <h3 class="round-title">Chatbot Building</h3>
-          <div class="round-duration" style="--neon:var(--neon2)">Duration: 3 Hours</div>
-          <ul class="round-items">
-            <li>You'll receive a <strong style="color:var(--white)">domain + problem statement</strong> at the start</li>
-            <li>Build a chatbot using ChatGPT, Gemini, Claude, or any LLM</li>
-            <li>Your chatbot must handle user queries meaningfully</li>
-            <li>Any tech stack or tools are permitted</li>
-            <li>Final demo + explanation to judges</li>
-          </ul>
-          <div class="round-purpose" style="border-color: var(--neon2)">
-            <strong style="color:var(--neon2)">After building</strong>, you must explain your prompt design, model choice, and how you handled edge cases.
+        <div class="round-card">
+          <div class="terminal-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          
+          <div class="round-content">
+            <div class="r-tag r2"><div class="r-dot"></div>Round 02</div>
+            <h3 class="r-title">Domain-Specific Chatbot Build</h3>
+            <div class="r-duration">// 3 hours &nbsp;·&nbsp; Build &amp; Demo</div>
+
+            <ul class="r-items">
+              <li>Receive a <strong style="color:var(--white)">domain-specific roblem statement</strong> at the start</li>
+              <li>Design and build a domain-specific chatbot</li>
+              <li>Use ChatGPT, Gemini, Claude, or any LLM</li>
+              <li>Implement meaningful query handling within the domain</li>
+              <li>Support multi-turn conversation (context retention)</li>
+              <li>Handle unclear, irrelevant, or out-of-domain inputs</li>
+              <li>Ensure structured and user-friendly responses</li>
+              <li>Use any tech stack or development tools</li>
+              <li><em style="color:var(--muted);">(Optional)</em> Push to GitHub for bonus consideration</li>
+            </ul>
+
+            <div class="r-note">
+              <strong>After building</strong>, explain your prompt design, model choice, context strategy, and edge case handling during the demo.
+            </div>
           </div>
         </div>
+
       </div>
     </div>
   </section>
 
-  <div class="divider"></div>
-
-  <!-- ═══ TEAM SECTION ═══ -->
-  <section id="team">
-    <div class="container">
-      <div class="section-label reveal">Team Format</div>
-      <h2 class="section-title reveal">Build Your Duo</h2>
-      <p class="section-desc reveal">You can participate <strong style="color:var(--white)">solo or as a duo</strong> — teams can have 1 or 2 players. Whether you're flying solo or bringing a partner, you're welcome in the arena!</p>
-
-      <div class="team-grid reveal">
-
-        <!-- Player 1 -->
-        <div class="player-card">
-          <div class="player-glow p1-glow"></div>
-          <div class="player-num">P1</div>
-          <div class="player-icon">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="17" r="9" stroke="#00ffe7" stroke-width="2"/>
-              <path d="M6 42c0-9.941 8.059-18 18-18s18 8.059 18 18" stroke="#00ffe7" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="24" cy="17" r="4" fill="rgba(0,255,231,0.15)"/>
-            </svg>
-          </div>
-          <div class="player-title">Player One</div>
-          <div class="player-role">The Strategist</div>
-          <ul class="player-traits">
-            <li>Leads problem understanding</li>
-            <li>Designs the prompt architecture</li>
-            <li>Handles the demo explanation</li>
-          </ul>
-          <div class="player-badge p1-badge">Required</div>
-        </div>
-
-        <!-- VS Divider -->
-        <div class="vs-divider reveal">
-          <div class="vs-line"></div>
-          <div class="vs-circle">
-            <span>+</span>
-          </div>
-          <div class="vs-line"></div>
-        </div>
-
-        <!-- Player 2 -->
-        <div class="player-card">
-          <div class="player-glow p2-glow"></div>
-          <div class="player-num">P2</div>
-          <div class="player-icon">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="17" r="9" stroke="#ff2d78" stroke-width="2"/>
-              <path d="M6 42c0-9.941 8.059-18 18-18s18 8.059 18 18" stroke="#ff2d78" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="24" cy="17" r="4" fill="rgba(255,45,120,0.15)"/>
-            </svg>
-          </div>
-          <div class="player-title">Player Two</div>
-          <div class="player-role">The Builder</div>
-          <ul class="player-traits">
-            <li>Implements the chatbot logic</li>
-            <li>Handles edge case testing</li>
-            <li>Manages tool &amp; model setup</li>
-          </ul>
-          <div class="player-badge p2-badge">Optional</div>
-        </div>
-
-      </div>
-
-      <!-- Team Rule Banner -->
-      <div class="team-rule reveal">
-        <div class="team-rule-icon">⚡</div>
-        <div class="team-rule-text">
-          <strong>Team Size:</strong> Participation is open to <span style="color:var(--neon)">individuals (solo)</span> and <span style="color:var(--neon2)">teams of 2</span>. Both are equally welcome — compete alone or team up with a partner!
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <style>
-    /* ─── TEAM SECTION ─── */
-    #team { background: var(--bg2); }
-
-    .team-grid {
-      display: flex;
-      align-items: stretch;
-      gap: 0;
-      margin-bottom: 40px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .player-card {
-      flex: 1;
-      min-width: 260px;
-      max-width: 380px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 48px 36px;
-      position: relative;
-      overflow: hidden;
-      text-align: center;
-      transition: border-color 0.3s, transform 0.3s;
-    }
-    .player-card:hover { transform: translateY(-6px); }
-    .player-card:first-child:hover { border-color: var(--neon); }
-    .player-card:last-child:hover { border-color: var(--neon2); }
-
-    .player-card:first-child::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(to right, var(--neon), var(--blue));
-    }
-    .player-card:last-child::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(to right, var(--neon2), #ff8a00);
-    }
-
-    .player-glow {
-      position: absolute;
-      width: 200px; height: 200px;
-      border-radius: 50%;
-      filter: blur(60px);
-      top: -60px;
-      left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
-    }
-    .p1-glow { background: rgba(0,255,231,0.08); }
-    .p2-glow { background: rgba(255,45,120,0.08); }
-
-    .player-num {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 0.3em;
-      font-weight: 700;
-      margin-bottom: 20px;
-      opacity: 0.5;
-    }
-    .player-card:first-child .player-num { color: var(--neon); }
-    .player-card:last-child .player-num { color: var(--neon2); }
-
-    .player-icon {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
-      animation: float 4s ease-in-out infinite;
-    }
-    .player-card:last-child .player-icon { animation-delay: 1s; }
-
-    .player-title {
-      font-family: 'Orbitron', monospace;
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: var(--white);
-      margin-bottom: 6px;
-    }
-
-    .player-role {
-      font-size: 0.8rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      margin-bottom: 28px;
-    }
-    .player-card:first-child .player-role { color: var(--neon); }
-    .player-card:last-child .player-role { color: var(--neon2); }
-
-    .player-traits {
-      list-style: none;
-      text-align: left;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 30px;
-    }
-    .player-traits li {
-      font-size: 0.88rem;
-      color: var(--dim);
-      padding-left: 18px;
-      position: relative;
-      line-height: 1.5;
-    }
-    .player-traits li::before {
-      position: absolute;
-      left: 0;
-      font-size: 0.75rem;
-    }
-    .player-card:first-child .player-traits li::before { content: '▸'; color: var(--neon); }
-    .player-card:last-child .player-traits li::before  { content: '▸'; color: var(--neon2); }
-
-    .player-badge {
-      display: inline-block;
-      font-family: 'Orbitron', monospace;
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      padding: 6px 16px;
-      border-radius: 2px;
-    }
-    .p1-badge { background: rgba(0,255,231,0.1); color: var(--neon); border: 1px solid rgba(0,255,231,0.3); }
-    .p2-badge { background: rgba(255,45,120,0.1); color: var(--neon2); border: 1px solid rgba(255,45,120,0.3); }
-
-    /* VS divider */
-    .vs-divider {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px 10px;
-      min-width: 60px;
-    }
-    .vs-line {
-      flex: 1;
-      width: 1px;
-      background: linear-gradient(to bottom, transparent, var(--border), transparent);
-      min-height: 60px;
-    }
-    .vs-circle {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Orbitron', monospace;
-      font-size: 1.2rem;
-      font-weight: 900;
-      color: var(--gold);
-      background: var(--bg);
-      box-shadow: 0 0 16px rgba(255,215,0,0.15);
-      flex-shrink: 0;
-    }
-
-    /* Team Rule Banner */
-    .team-rule {
-      display: flex;
-      align-items: flex-start;
-      gap: 18px;
-      background: rgba(0,255,231,0.04);
-      border: 1px solid rgba(0,255,231,0.2);
-      border-left: 3px solid var(--neon);
-      padding: 22px 28px;
-      border-radius: 2px;
-    }
-    .team-rule-icon {
-      font-size: 1.4rem;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-    .team-rule-text {
-      font-size: 0.95rem;
-      color: var(--dim);
-      line-height: 1.7;
-    }
-    .team-rule-text strong { color: var(--white); }
-
-    @media (max-width: 680px) {
-      .vs-divider { flex-direction: row; padding: 10px 0; min-width: 100%; }
-      .vs-line { flex: 1; height: 1px; width: auto; min-height: unset; background: linear-gradient(to right, transparent, var(--border), transparent); }
-      .team-grid { flex-direction: column; align-items: center; }
-      .player-card { max-width: 100%; width: 100%; }
-    }
-  </style>
-
-  <div class="divider"></div>
-
-  <!-- ═══ WHY ENROLL ═══ -->
+  <!-- ═══════ WHY ENROLL ═══════ -->
   <section id="why-enroll">
     <div class="container">
-      <div class="section-label reveal">Don't Hesitate</div>
-      <h2 class="section-title reveal">Why You Should<br/>Enroll Today</h2>
-      <p class="section-desc reveal">Think you need to be an AI expert? Think again. This competition is designed for everyone — from complete beginners to tech enthusiasts.</p>
+      <div class="s-eyebrow reveal">Don't Hesitate</div>
+      <h2 class="s-title reveal">Why You Should<br/>Enroll Today</h2>
+      <p class="s-desc reveal">You don't need to be an AI expert. This competition is designed for everyone — from complete beginners to tech enthusiasts.</p>
 
       <div class="why-grid reveal">
 
         <div class="why-card">
-          <div class="why-icon">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <circle cx="28" cy="28" r="26" stroke="#00ffe7" stroke-width="2" opacity="0.3"/>
-              <path d="M20 28h16M28 20v16" stroke="#00ffe7" stroke-width="3" stroke-linecap="round"/>
-              <circle cx="28" cy="28" r="3" fill="#00ffe7"/>
+          <div class="why-num">01 /</div>
+          <div class="why-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <circle cx="13" cy="13" r="5" stroke="#00ff9d" stroke-width="1.5"/>
+              <path d="M13 3v4M13 19v4M3 13h4M19 13h4" stroke="#00ff9d" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="5.5" cy="5.5" r="1.5" fill="#00ff9d" opacity="0.4"/>
+              <circle cx="20.5" cy="5.5" r="1.5" fill="#00ff9d" opacity="0.4"/>
+              <circle cx="5.5" cy="20.5" r="1.5" fill="#00ff9d" opacity="0.4"/>
+              <circle cx="20.5" cy="20.5" r="1.5" fill="#00ff9d" opacity="0.4"/>
             </svg>
           </div>
-          <h3 class="why-title">No Prior AI/ML Experience Needed</h3>
-          <p class="why-text">Round 1 is beginner-friendly with fun quizzes and puzzles. You'll learn the basics of AI, LLMs, and prompting — no coding required!</p>
+          <h3 class="why-title">Zero AI/ML Experience Required</h3>
+          <p class="why-text">Round 1 is built for beginners with fun quizzes and puzzles. You'll learn AI, LLMs, and prompting from the ground up — no coding necessary.</p>
         </div>
 
         <div class="why-card">
-          <div class="why-icon">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <rect x="14" y="14" width="28" height="28" rx="4" stroke="#ff2d78" stroke-width="2" opacity="0.3"/>
-              <path d="M22 28h12M28 22v12" stroke="#ff2d78" stroke-width="3" stroke-linecap="round"/>
-              <circle cx="28" cy="28" r="2" fill="#ff2d78"/>
+          <div class="why-num">02 /</div>
+          <div class="why-icon-wrap" style="border-color:rgba(255,0,110,0.3); background:rgba(255,0,110,0.06);">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <rect x="4" y="7" width="18" height="14" rx="2" stroke="#ff006e" stroke-width="1.5"/>
+              <path d="M9 7V5a4 4 0 018 0v2" stroke="#ff006e" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="13" cy="14" r="2.5" fill="#ff006e" opacity="0.7"/>
             </svg>
           </div>
-          <h3 class="why-title">Hands-On Learning Experience</h3>
-          <p class="why-text">Build a real chatbot using tools like ChatGPT, Gemini, or Claude. Learn by doing — the best way to understand AI and prompt engineering.</p>
+          <h3 class="why-title">Hands-On Real Learning</h3>
+          <p class="why-text">Build an actual chatbot using ChatGPT, Gemini, or Claude. Learn by doing — the most effective way to understand modern AI systems.</p>
         </div>
 
         <div class="why-card">
-          <div class="why-icon">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <path d="M28 14v28M14 28h28" stroke="#0af" stroke-width="2" opacity="0.3"/>
-              <circle cx="28" cy="14" r="3" fill="#0af"/>
-              <circle cx="42" cy="28" r="3" fill="#0af"/>
-              <circle cx="28" cy="42" r="3" fill="#0af"/>
-              <circle cx="14" cy="28" r="3" fill="#0af"/>
+          <div class="why-num">03 /</div>
+          <div class="why-icon-wrap" style="border-color:rgba(61,155,255,0.3); background:rgba(61,155,255,0.06);">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <path d="M5 21L13 5l8 16" stroke="#3d9bff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 16h10" stroke="#3d9bff" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
           </div>
           <h3 class="why-title">Future-Ready Skills</h3>
-          <p class="why-text">AI is reshaping every industry. Gain skills that will set you apart — whether you're pursuing tech, business, or any other field.</p>
+          <p class="why-text">AI is reshaping every industry. Gain skills that set you apart — whether you're in tech, business, healthcare, or any other field.</p>
         </div>
 
       </div>
 
-      <div class="chatbot-flow reveal">
-        <div class="flow-title">What You'll Learn: Chatbot Design Flow</div>
-        <div class="flow-container">
+      <!-- Chatbot Design Flow -->
+      <div class="flow-block reveal">
+        <div class="flow-label">Chatbot Design Pipeline</div>
+        <div class="flow-steps">
           <div class="flow-step">
-            <div class="flow-number">01</div>
-            <div class="flow-label">User Input</div>
-            <div class="flow-desc">Query received</div>
+            <span class="flow-step-num">01</span>
+            <span class="flow-step-icon">⌨️</span>
+            <div class="flow-step-name">User Input</div>
+            <div class="flow-step-desc">Query received</div>
           </div>
-          <div class="flow-arrow">→</div>
+          <div class="flow-connector">›</div>
           <div class="flow-step">
-            <div class="flow-number">02</div>
-            <div class="flow-label">Prompt Design</div>
-            <div class="flow-desc">Context + Instructions</div>
+            <span class="flow-step-num">02</span>
+            <span class="flow-step-icon">🔧</span>
+            <div class="flow-step-name">Prompt Design</div>
+            <div class="flow-step-desc">Context + instructions</div>
           </div>
-          <div class="flow-arrow">→</div>
+          <div class="flow-connector">›</div>
           <div class="flow-step">
-            <div class="flow-number">03</div>
-            <div class="flow-label">LLM Processing</div>
-            <div class="flow-desc">AI generates response</div>
+            <span class="flow-step-num">03</span>
+            <span class="flow-step-icon">🧠</span>
+            <div class="flow-step-name">LLM Processing</div>
+            <div class="flow-step-desc">AI generates response</div>
           </div>
-          <div class="flow-arrow">→</div>
+          <div class="flow-connector">›</div>
           <div class="flow-step">
-            <div class="flow-number">04</div>
-            <div class="flow-label">Smart Response</div>
-            <div class="flow-desc">Structured output</div>
+            <span class="flow-step-num">04</span>
+            <span class="flow-step-icon">✅</span>
+            <div class="flow-step-name">Smart Response</div>
+            <div class="flow-step-desc">Structured output</div>
           </div>
         </div>
-        <div class="flow-note">You'll master this entire pipeline during the competition!</div>
       </div>
-
     </div>
   </section>
 
-  <style>
-    #why-enroll { background: var(--bg); }
-    .why-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 24px;
-      margin-bottom: 60px;
-    }
-    .why-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 40px 32px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.3s, border-color 0.3s;
-    }
-    .why-card:hover { transform: translateY(-6px); border-color: var(--neon); }
-    .why-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(to right, var(--neon), var(--blue));
-      transform: scaleX(0); transform-origin: left;
-      transition: transform 0.4s ease;
-    }
-    .why-card:hover::before { transform: scaleX(1); }
-    .why-card:nth-child(2)::before { background: linear-gradient(to right, var(--neon2), #ff8a00); }
-    .why-card:nth-child(3)::before { background: linear-gradient(to right, var(--blue), var(--neon)); }
-    .why-icon { margin-bottom: 24px; display: flex; justify-content: center; animation: float 4s ease-in-out infinite; }
-    .why-card:nth-child(2) .why-icon { animation-delay: 1s; }
-    .why-card:nth-child(3) .why-icon { animation-delay: 2s; }
-    .why-title { font-family: 'Orbitron', monospace; font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 14px; line-height: 1.3; }
-    .why-text { font-size: 0.95rem; color: var(--dim); line-height: 1.7; }
-    .chatbot-flow {
-      background: rgba(0,255,231,0.03);
-      border: 1px solid var(--border);
-      padding: 48px 40px;
-      border-radius: 4px;
-      position: relative; overflow: hidden;
-    }
-    .chatbot-flow::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,255,231,0.05) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .flow-title { font-family: 'Orbitron', monospace; font-size: 1.1rem; font-weight: 700; color: var(--neon); text-align: center; margin-bottom: 36px; letter-spacing: 0.05em; }
-    .flow-container { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
-    .flow-step { background: var(--bg); border: 1px solid var(--border); padding: 22px 20px; min-width: 130px; text-align: center; transition: border-color 0.3s, transform 0.3s; }
-    .flow-step:hover { border-color: var(--neon); transform: translateY(-4px); }
-    .flow-number { font-family: 'Orbitron', monospace; font-size: 1.6rem; font-weight: 900; color: rgba(0,255,231,0.3); margin-bottom: 8px; }
-    .flow-label { font-family: 'Orbitron', monospace; font-size: 0.8rem; font-weight: 700; color: var(--white); margin-bottom: 5px; }
-    .flow-desc { font-size: 0.72rem; color: var(--dim); }
-    .flow-arrow { font-size: 1.6rem; color: var(--neon); opacity: 0.6; }
-    .flow-note { text-align: center; font-size: 0.88rem; color: var(--dim); font-style: italic; padding-top: 8px; border-top: 1px solid rgba(0,255,231,0.1); }
-    @media (max-width: 768px) {
-      .flow-container { flex-direction: column; }
-      .flow-arrow { transform: rotate(90deg); }
-      .flow-step { min-width: 100%; max-width: 320px; }
-    }
-  </style>
-
-  <div class="divider"></div>
-
+  <!-- ═══════ EVALUATION ═══════ -->
   <section id="evaluation">
     <div class="container">
-      <div class="section-label reveal">Scoring</div>
-      <h2 class="section-title reveal">Evaluation Criteria</h2>
-      <p class="section-desc reveal">Your chatbot is judged across 7 parameters totaling 100 points.</p>
+      <div class="s-eyebrow reveal">Scoring System</div>
+      <h2 class="s-title reveal">Evaluation Criteria</h2>
+      <div class="eval-intro reveal">
+        <p class="s-desc" style="max-width: 100%;">Your chatbot is judged across 7 parameters — 100 points total. Each criterion measures different aspects of AI development excellence.</p>
+      </div>
 
-      <div class="eval-grid">
+      <div class="eval-layout reveal">
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--neon)">20%</div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">20%</div>
+            <div class="eval-badge">Critical</div>
+          </div>
           <div class="eval-name">Problem Understanding</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:20%; color:var(--neon); background:var(--neon);"></div></div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--acid);" data-w="20"></div>
+          </div>
           <ul class="eval-points">
-            <li>Clarity in understanding the domain</li>
+            <li>Clarity in understanding the given domain</li>
             <li>Logical structuring of the solution</li>
             <li>Practical usefulness of the chatbot</li>
+            <li>Clear system flow (input → processing → response)</li>
           </ul>
         </div>
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--gold)">10%</div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">10%</div>
+            <div class="eval-badge">Important</div>
+          </div>
           <div class="eval-name">Model Selection</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:10%; color:var(--gold); background:var(--gold);"></div></div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--amber);" data-w="10"></div>
+          </div>
           <ul class="eval-points">
-            <li>Choice of LLM</li>
-            <li>Suitability for the task</li>
-            <li>Reasoning behind selection</li>
+            <li>Choice of LLM (ChatGPT, Gemini, Claude, etc.)</li>
+            <li>Task suitability of the model</li>
+            <li>Reasoning behind model selection</li>
           </ul>
         </div>
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--neon)">20%</div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">20%</div>
+            <div class="eval-badge">Critical</div>
+          </div>
           <div class="eval-name">Prompt Engineering</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:20%; color:var(--neon); background:var(--neon);"></div></div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--acid);" data-w="20"></div>
+          </div>
           <ul class="eval-points">
             <li>Clarity and structure of prompts</li>
-            <li>Context handling</li>
-            <li>Instruction design</li>
+            <li>Role definition and instruction design</li>
+            <li>Context handling and conversation continuity</li>
+            <li>Output formatting (tables, bullets, structured responses)</li>
           </ul>
         </div>
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--neon2)">20%</div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">20%</div>
+            <div class="eval-badge">Critical</div>
+          </div>
           <div class="eval-name">Accuracy & Relevance</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:20%; color:var(--neon2); background:var(--neon2);"></div></div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--plasma);" data-w="20"></div>
+          </div>
           <ul class="eval-points">
             <li>Correctness of responses</li>
-            <li>Domain relevance</li>
-            <li>Consistency in answers</li>
+            <li>Domain relevance of answers</li>
+            <li>Consistency in responses</li>
+            <li>Ability to handle real user queries effectively</li>
           </ul>
         </div>
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--blue)">10%</div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">10%</div>
+            <div class="eval-badge">Performance</div>
+          </div>
           <div class="eval-name">Latency & Performance</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:10%; color:var(--blue); background:var(--blue);"></div></div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--electric);" data-w="10"></div>
+          </div>
           <ul class="eval-points">
             <li>Response speed</li>
             <li>Smooth functioning during demo</li>
+            <li>Stability of the chatbot</li>
           </ul>
         </div>
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--gold)">10%</div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">10%</div>
+            <div class="eval-badge">Important</div>
+          </div>
           <div class="eval-name">Edge Case Handling</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:10%; color:var(--gold); background:var(--gold);"></div></div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--amber);" data-w="10"></div>
+          </div>
           <ul class="eval-points">
             <li>Handling vague or irrelevant queries</li>
-            <li>Handling incorrect / empty inputs</li>
+            <li>Empty/wrong inputs management</li>
             <li>Fallback responses</li>
+            <li>Out-of-domain or unsafe queries handling</li>
           </ul>
         </div>
 
-        <div class="eval-card reveal">
-          <div class="eval-percent" style="color:var(--neon2)">10%</div>
-          <div class="eval-name">Communication</div>
-          <div class="eval-bar"><div class="eval-bar-fill" style="width:10%; color:var(--neon2); background:var(--neon2);"></div></div>
+        <div class="eval-card">
+          <div class="eval-header">
+            <div class="eval-weight">10%</div>
+            <div class="eval-badge">Presentation</div>
+          </div>
+          <div class="eval-name">Communication & Presentation</div>
+          <div class="eval-track">
+            <div class="eval-fill" style="background:var(--plasma);" data-w="10"></div>
+          </div>
           <ul class="eval-points">
             <li>Clarity in explaining workflow</li>
-            <li>Ability to justify decisions</li>
+            <li>Ability to justify design decisions</li>
+            <li>Demo clarity and confidence</li>
           </ul>
         </div>
 
@@ -1350,402 +1932,142 @@
     </div>
   </section>
 
-  <!-- ═══ CTA ═══ -->
-  <section id="cta">
-    <div class="container">
-      <div class="section-label" style="justify-content:center; margin-bottom:24px;">Ready to Enter?</div>
-      <h2 class="cta-title">
-        Step Into The<br/><span>Arena</span>
-      </h2>
-      <p class="cta-sub">
-        No prior AI/ML experience required for Round 1. Bring your curiosity, your team, and your best prompts.
-      </p>
-
-      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfY9k8oS7bbECMn7THmO8V59-VNBjXu2VRiilznm-UI8KPdSw/viewform?usp=dialog" target="_blank" class="cta-register-btn">
-        Click Here to Register <span class="cta-arrow">→</span>
-      </a>
-
-      <p class="cta-note">Clicking will open the registration form in a new tab</p>
-
-      <!-- Closing Hook -->
-      <div class="closing-hook reveal">
-        Think. Build. Compete. Welcome to Code Arena 2.0.
-      </div>
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ═══ PRIZES ═══ -->
+  <!-- ═══════ PRIZES ═══════ -->
   <section id="prizes">
     <div class="container">
-      <div class="section-label reveal">Rewards</div>
-      <h2 class="section-title reveal">Prize Pool</h2>
-      <p class="section-desc reveal">Top performers walk away with real rewards. Compete hard, build smart, and claim your prize.</p>
+      <div class="s-eyebrow reveal">Rewards</div>
+      <h2 class="s-title reveal">Prize Pool</h2>
+      <p class="s-desc reveal">Recognition and rewards for the top three teams that demonstrate exceptional AI development skills.</p>
 
       <div class="prizes-grid reveal">
-
-        <!-- 2nd Place -->
-        <div class="prize-card silver">
-          <div class="prize-rank">2<span class="prize-rank-sup">nd</span></div>
-          <div class="prize-medal">🥈</div>
-          <div class="prize-title">Runner Up</div>
-          <div class="prize-amount">₹2,000</div>
-          <div class="prize-desc">Second place — Outstanding performance across both rounds</div>
-        </div>
-
-        <!-- 1st Place -->
-        <div class="prize-card gold">
-          <div class="prize-crown">👑</div>
-          <div class="prize-rank">1<span class="prize-rank-sup">st</span></div>
-          <div class="prize-medal">🥇</div>
-          <div class="prize-title">Champion</div>
+        
+        <div class="prize-card">
+          <div class="prize-rank">1st Place Winner</div>
+          <span class="prize-trophy">🏆</span>
           <div class="prize-amount">₹3,000</div>
-          <div class="prize-desc">First place — The ultimate Code Arena 2.0 champion!</div>
+          <div class="prize-label">First Prize</div>
         </div>
 
-        <!-- 3rd Place -->
-        <div class="prize-card bronze">
-          <div class="prize-rank">3<span class="prize-rank-sup">rd</span></div>
-          <div class="prize-medal">🥉</div>
-          <div class="prize-title">Second Runner Up</div>
+        <div class="prize-card">
+          <div class="prize-rank">2nd Place Winner</div>
+          <span class="prize-trophy">🥈</span>
+          <div class="prize-amount">₹2,000</div>
+          <div class="prize-label">Second Prize</div>
+        </div>
+
+        <div class="prize-card">
+          <div class="prize-rank">3rd Place Winner</div>
+          <span class="prize-trophy">🥉</span>
           <div class="prize-amount">₹1,000</div>
-          <div class="prize-desc">Third place — Impressive effort and execution</div>
+          <div class="prize-label">Third Prize</div>
         </div>
 
-      </div>
-
-      <div class="prize-note reveal">
-        🎖️ All participants will receive a <strong style="color:var(--white)">Certificate of Participation</strong>. Shortlisted teams from Round 1 proceed to Round 2.
       </div>
     </div>
   </section>
 
-  <div class="divider"></div>
-
-  <!-- ═══ CONTACT ═══ -->
+  <!-- ═══════ CONTACT ═══════ -->
   <section id="contact">
     <div class="container">
-      <div class="section-label reveal">Get In Touch</div>
-      <h2 class="section-title reveal">Contact Us</h2>
-      <p class="section-desc reveal">Have questions? Reach out to our coordinators — we're happy to help!</p>
+      <div class="s-eyebrow reveal">Get In Touch</div>
+      <h2 class="s-title reveal">Contact Details</h2>
+      <p class="s-desc reveal">Have questions? Reach out to our event coordinators for assistance with registration or event details.</p>
 
       <div class="contact-grid reveal">
-
+        
         <div class="contact-card">
-          <div class="contact-role">Event Coordinator</div>
-          <div class="contact-icon">
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-              <circle cx="22" cy="14" r="7" stroke="#00ffe7" stroke-width="2"/>
-              <path d="M8 38c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#00ffe7" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
+          <div class="contact-type">Event Coordinator</div>
           <div class="contact-name">Prof. Tulshiram Kamble</div>
-          <a href="tel:+919579829635" class="contact-phone">
-            <span class="contact-phone-icon">📞</span>
-            +91 9579829635
-          </a>
+          <div class="contact-role">Faculty Coordinator</div>
+          <div class="contact-info">
+            <span class="contact-icon">📞</span>
+            <span>+91 9579829635</span>
+          </div>
         </div>
 
         <div class="contact-card">
-          <div class="contact-role">Student Coordinator</div>
-          <div class="contact-icon">
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-              <circle cx="22" cy="14" r="7" stroke="#ff2d78" stroke-width="2"/>
-              <path d="M8 38c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="#ff2d78" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
+          <div class="contact-type">Student Coordinator</div>
           <div class="contact-name">Aarya Godbole</div>
-          <a href="tel:+919822215688" class="contact-phone contact-phone-pink">
-            <span class="contact-phone-icon">📞</span>
-            +91 98222 15688
-          </a>
+          <div class="contact-role">Student Coordinator</div>
+          <div class="contact-info">
+            <span class="contact-icon">📞</span>
+            <span>+91 9822215688</span>
+          </div>
         </div>
 
       </div>
     </div>
   </section>
 
-  <style>
-    /* ─── EVENT META (Date + Venue below title) ─── */
-    .event-meta {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-top: 18px;
-      margin-bottom: 10px;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 1.1s forwards;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .event-meta-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0,255,231,0.07);
-      border: 1px solid rgba(0,255,231,0.2);
-      padding: 8px 20px;
-      border-radius: 2px;
-    }
-    .event-meta-icon { font-size: 1rem; }
-    .event-meta-text {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      color: var(--white);
-    }
-    .event-meta-sep {
-      color: var(--dim);
-      font-size: 1.2rem;
-      font-weight: 300;
-    }
+  <!-- ═══════ CTA ═══════ -->
+  <section id="cta">
+    <div class="cta-glow"></div>
+    <div class="container cta-inner">
+      <div class="s-eyebrow reveal" style="justify-content:center">Ready to Enter?</div>
 
-    /* ─── CLOSING HOOK ─── */
-    .closing-hook {
-      margin-top: 60px;
-      font-family: 'Orbitron', monospace;
-      font-size: clamp(1rem, 2.5vw, 1.5rem);
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: transparent;
-      background: linear-gradient(135deg, var(--neon), var(--blue), var(--neon2));
-      -webkit-background-clip: text;
-      background-clip: text;
-      text-align: center;
-      padding: 30px 20px;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
+      <h2 class="cta-title reveal">
+        Step Into<br/>
+        <span class="line2">the Arena</span>
+      </h2>
 
-    /* ─── PRIZES ─── */
-    #prizes { background: var(--bg); }
+      <p class="cta-sub reveal">No prior AIML experience required for Round 1. Bring your curiosity, your team, and your best prompts.</p>
 
-    .prizes-grid {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 40px;
-      flex-wrap: wrap;
-    }
+      <div class="cta-btn-wrap reveal">
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSfY9k8oS7bbECMn7THmO8V59-VNBjXu2VRiilznm-UI8KPdSw/viewform?usp=dialog" target="_blank" class="cta-main-btn">
+          <span style="position:relative;z-index:1">Click Here to Register →</span>
+        </a>
+        <div class="cta-note">Opens registration form in a new tab</div>
+      </div>
 
-    .prize-card {
-      flex: 1;
-      min-width: 220px;
-      max-width: 300px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 36px 28px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.3s, border-color 0.3s;
-    }
-    .prize-card:hover { transform: translateY(-6px); }
+      <div class="cta-why reveal">
+        <div class="cta-why-label">// Why Participate</div>
+        <p><strong>AI and Machine Learning</strong> are reshaping every industry — from healthcare to finance, education to entertainment. Understanding how to work with LLMs, design effective prompts, and build intelligent systems is no longer optional; it's <strong>essential for the future</strong>. This competition gives you hands-on experience with real-world AI challenges, sharpens your problem-solving skills, and prepares you to thrive in an AI-driven world.</p>
+      </div>
+    </div>
+  </section>
 
-    .prize-card.gold {
-      border-color: rgba(255,215,0,0.35);
-      background: rgba(255,215,0,0.04);
-      padding-top: 56px;
-    }
-    .prize-card.gold:hover { border-color: var(--gold); }
-    .prize-card.gold::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(to right, #ffd700, #ffec6e, #ffd700);
-    }
-    .prize-card.silver { border-color: rgba(192,192,192,0.25); }
-    .prize-card.silver::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(to right, #c0c0c0, #e8e8e8, #c0c0c0);
-    }
-    .prize-card.bronze { border-color: rgba(205,127,50,0.25); }
-    .prize-card.bronze::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(to right, #cd7f32, #e8a96e, #cd7f32);
-    }
-
-    .prize-crown {
-      font-size: 2rem;
-      margin-bottom: 8px;
-      animation: float 3s ease-in-out infinite;
-    }
-
-    .prize-rank {
-      font-family: 'Orbitron', monospace;
-      font-size: 3.5rem;
-      font-weight: 900;
-      line-height: 1;
-      margin-bottom: 6px;
-    }
-    .prize-card.gold .prize-rank { color: var(--gold); text-shadow: 0 0 30px rgba(255,215,0,0.4); }
-    .prize-card.silver .prize-rank { color: #c0c0c0; }
-    .prize-card.bronze .prize-rank { color: #cd7f32; }
-
-    .prize-rank-sup {
-      font-size: 1.2rem;
-      vertical-align: super;
-    }
-
-    .prize-medal { font-size: 2rem; margin-bottom: 10px; }
-
-    .prize-title {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--dim);
-      margin-bottom: 16px;
-    }
-
-    .prize-amount {
-      font-family: 'Orbitron', monospace;
-      font-size: 2rem;
-      font-weight: 900;
-      margin-bottom: 16px;
-    }
-    .prize-card.gold .prize-amount { color: var(--gold); }
-    .prize-card.silver .prize-amount { color: #d4d4d4; }
-    .prize-card.bronze .prize-amount { color: #cd7f32; }
-
-    .prize-desc {
-      font-size: 0.83rem;
-      color: var(--dim);
-      line-height: 1.6;
-    }
-
-    .prize-note {
-      text-align: center;
-      font-size: 0.92rem;
-      color: var(--dim);
-      padding: 20px 28px;
-      background: rgba(0,255,231,0.03);
-      border: 1px solid rgba(0,255,231,0.12);
-      line-height: 1.7;
-    }
-
-    /* ─── CONTACT ─── */
-    #contact { background: var(--bg2); }
-
-    .contact-grid {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .contact-card {
-      flex: 1;
-      min-width: 260px;
-      max-width: 400px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      padding: 44px 36px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.3s, border-color 0.3s;
-    }
-    .contact-card:hover { transform: translateY(-5px); }
-    .contact-card:first-child { border-top: 2px solid var(--neon); }
-    .contact-card:first-child:hover { border-color: var(--neon); }
-    .contact-card:last-child { border-top: 2px solid var(--neon2); }
-    .contact-card:last-child:hover { border-color: var(--neon2); }
-
-    .contact-role {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.62rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      margin-bottom: 20px;
-    }
-    .contact-card:first-child .contact-role { color: var(--neon); }
-    .contact-card:last-child .contact-role { color: var(--neon2); }
-
-    .contact-icon {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 18px;
-      animation: float 4s ease-in-out infinite;
-    }
-    .contact-card:last-child .contact-icon { animation-delay: 1.5s; }
-
-    .contact-name {
-      font-family: 'Orbitron', monospace;
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--white);
-      margin-bottom: 20px;
-      line-height: 1.3;
-    }
-
-    .contact-phone {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 1.15rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-decoration: none;
-      padding: 12px 28px;
-      border-radius: 2px;
-      transition: transform 0.2s, box-shadow 0.3s;
-    }
-    .contact-phone {
-      color: var(--neon);
-      background: rgba(0,255,231,0.08);
-      border: 1px solid rgba(0,255,231,0.25);
-    }
-    .contact-phone:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 0 20px rgba(0,255,231,0.25);
-    }
-    .contact-phone-pink {
-      color: var(--neon2) !important;
-      background: rgba(255,45,120,0.08) !important;
-      border-color: rgba(255,45,120,0.25) !important;
-    }
-    .contact-phone-pink:hover {
-      box-shadow: 0 0 20px rgba(255,45,120,0.25) !important;
-    }
-    .contact-phone-icon { font-size: 1rem; }
-
-    @media (max-width: 600px) {
-      .prizes-grid { flex-direction: column; align-items: center; }
-      .prize-card { max-width: 100%; width: 100%; }
-      .event-meta { gap: 10px; }
-      .event-meta-sep { display: none; }
-    }
-  </style>
-
-  <!-- ═══ FOOTER ═══ -->
+  <!-- ═══════ FOOTER ═══════ -->
   <footer>
     <div class="footer-logo">CODE ARENA 2.0</div>
-    <div class="footer-text">
-      Organised by Department of Computer Science (Data Science)<br/>
-      TSSM's Padmabhooshan Vasantdada Patil Institute of Technology, Bavdhan<br/>
-      <span style="color:rgba(138,160,184,0.5); font-size:0.7rem; margin-top:6px; display:block;">Think. Build. Compete. Welcome to Code Arena 2.0.</span>
+    <div class="footer-info">
+      Organised by Dept. of Computer Science (Data Science)<br/>
+      TSSM's PVPIT, Bavdhan &nbsp;·&nbsp; Built for curious minds.
     </div>
   </footer>
 
-  <!-- ═══ SCRIPTS ═══ -->
+  <!-- ═══════ SCRIPTS ═══════ -->
   <script>
-    // ── Particle System ──────────────────────────────────────────────
-    const canvas = document.getElementById('particles');
+    // ── Custom Cursor ─────────────────────────────────────────────
+    const cursor = document.getElementById('cursor');
+    const ring = document.getElementById('cursor-ring');
+    let mx = -100, my = -100, rx = -100, ry = -100;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    function animCursor() {
+      cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+      rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
+      ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+      requestAnimationFrame(animCursor);
+    }
+    animCursor();
+    document.querySelectorAll('a, button').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        cursor.style.width = '20px'; cursor.style.height = '20px';
+        ring.style.width = '56px'; ring.style.height = '56px';
+        ring.style.borderColor = 'rgba(0,255,157,0.8)';
+      });
+      el.addEventListener('mouseleave', () => {
+        cursor.style.width = '10px'; cursor.style.height = '10px';
+        ring.style.width = '36px'; ring.style.height = '36px';
+        ring.style.borderColor = 'rgba(0,255,157,0.5)';
+      });
+    });
+
+    // ── Neural Network Canvas ─────────────────────────────────────
+    const canvas = document.getElementById('neural-canvas');
     const ctx = canvas.getContext('2d');
-    let W, H, particles = [];
+    let W, H;
+    const NODES = [];
+    const NODE_COUNT = 80;
 
     function resize() {
       W = canvas.width = window.innerWidth;
@@ -1754,55 +2076,89 @@
     resize();
     window.addEventListener('resize', resize);
 
-    function mkParticle() {
-      return {
-        x: Math.random() * W,
-        y: Math.random() * H,
-        r: Math.random() * 1.2 + 0.3,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: -Math.random() * 0.4 - 0.1,
-        alpha: Math.random() * 0.5 + 0.1,
-        color: Math.random() > 0.6 ? '#00ffe7' : Math.random() > 0.5 ? '#0af' : '#ff2d78'
-      };
-    }
-
-    for (let i = 0; i < 120; i++) particles.push(mkParticle());
-
-    function drawParticles() {
-      ctx.clearRect(0, 0, W, H);
-      particles.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha;
-        ctx.fill();
-        p.x += p.vx; p.y += p.vy;
-        if (p.y < -5) { Object.assign(p, mkParticle(), { y: H + 5 }); }
+    for (let i = 0; i < NODE_COUNT; i++) {
+      NODES.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.28,
+        vy: (Math.random() - 0.5) * 0.28,
+        r: Math.random() * 1.8 + 0.5,
+        alpha: Math.random() * 0.5 + 0.15,
+        color: Math.random() > 0.6 ? '#00ff9d' : Math.random() > 0.5 ? '#3d9bff' : '#ff006e',
+        pulsePhase: Math.random() * Math.PI * 2
       });
-      ctx.globalAlpha = 1;
-      requestAnimationFrame(drawParticles);
     }
-    drawParticles();
 
-    // ── Scroll Reveal ─────────────────────────────────────────────────
-    const reveals = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver((entries) => {
+    let frame = 0;
+    function drawNeural() {
+      ctx.clearRect(0, 0, W, H);
+      frame++;
+
+      // Edges
+      for (let i = 0; i < NODES.length; i++) {
+        for (let j = i + 1; j < NODES.length; j++) {
+          const a = NODES[i], b = NODES[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 140) {
+            const opacity = 0.12 * (1 - dist / 140);
+            const pulse = Math.sin(frame * 0.04 + i * 0.5) * 0.5 + 0.5;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            const gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            gradient.addColorStop(0, `rgba(0,255,157,${opacity})`);
+            gradient.addColorStop(pulse, `rgba(0,255,157,${opacity * 3})`);
+            gradient.addColorStop(1, `rgba(61,155,255,${opacity})`);
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Nodes
+      NODES.forEach((n, i) => {
+        const pulse = Math.sin(frame * 0.03 + n.pulsePhase) * 0.3 + 0.7;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = n.color;
+        ctx.globalAlpha = n.alpha * pulse;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        n.x += n.vx;
+        n.y += n.vy;
+        if (n.x < 0 || n.x > W) n.vx *= -1;
+        if (n.y < 0 || n.y > H) n.vy *= -1;
+      });
+
+      requestAnimationFrame(drawNeural);
+    }
+    drawNeural();
+
+    // ── Scroll Reveal ─────────────────────────────────────────────
+    const observer = new IntersectionObserver(entries => {
       entries.forEach((e, i) => {
         if (e.isIntersecting) {
-          setTimeout(() => e.target.classList.add('visible'), 80 * (Array.from(reveals).indexOf(e.target) % 5));
+          const delay = parseFloat(e.target.dataset.delay || 0);
+          setTimeout(() => e.target.classList.add('vis'), delay * 1000);
           observer.unobserve(e.target);
         }
       });
-    }, { threshold: 0.12 });
-    reveals.forEach(el => observer.observe(el));
+    }, { threshold: 0.1 });
 
-    // ── Animate eval bars on scroll ───────────────────────────────────
-    const barObserver = new IntersectionObserver((entries) => {
+    document.querySelectorAll('.reveal').forEach((el, i) => {
+      el.dataset.delay = (i % 4) * 0.08;
+      observer.observe(el);
+    });
+
+    // ── Animate eval bars ─────────────────────────────────────────
+    const barObserver = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) {
-          e.target.querySelectorAll('.eval-bar-fill').forEach(bar => {
-            bar.style.width = bar.style.width;
-          });
+          const fill = e.target.querySelector('.eval-fill');
+          if (fill) fill.style.width = fill.dataset.w + '%';
+          barObserver.unobserve(e.target);
         }
       });
     }, { threshold: 0.3 });
